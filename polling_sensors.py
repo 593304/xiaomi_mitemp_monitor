@@ -23,7 +23,7 @@ LOGGER_FORMAT = '%(asctime)15s | %(levelname)8s | %(name)s - %(funcName)12s - %(
 
 
 def init():
-    logging.basicConfig(filename=LOG_FILE, format=LOGGER_FORMAT, level=logging.DEBUG)
+    logging.basicConfig(filename=LOG_FILE, format=LOGGER_FORMAT, level=logging.INFO)
     global LOGGER
     LOGGER = logging.getLogger('polling_sensors')
     try:
@@ -43,8 +43,8 @@ def init():
 def check_temp_file():
     try:
         file = open(TEMP_DB_FILE, 'r')
-        LOGGER.info('')
         lines = file.readlines()
+        LOGGER.info('Found temporary file with {} records'.format(len(lines)))
         file.close()
         for line in lines:
             line = json.loads(line)
@@ -63,27 +63,38 @@ def save_to_file(name, mac, result):
 
 def save_to_db(name, mac, result):
     LOGGER.debug('Saving to DB ')
-    DB_CURSOR.execute('INSERT INTO monitoring.sensor_data(name, mac_address, room_temp_celsius, room_humdity_percent, battery_percent, timestamp) VALUES(%s,%s,%s,%s,%s,now())', (name, mac, result['temperature'], result['humidity'], result['battery']))
+    DB_CURSOR.execute(
+        'INSERT INTO '
+        '  monitoring.sensor_data('
+        '    name, mac_address, '
+        '    room_temp_celsius, room_humdity_percent, '
+        '    battery_percent, '
+        '    timestamp) '
+        'VALUES('
+        '  %s, %s, '
+        '  %s, %s, '
+        '  %s, '
+        '  now())',
+        (name, mac,
+         result['temperature'], result['humidity'],
+         result['battery']))
     DB_CONNECTION.commit()
 
 
 def main():
     for key, value in SENSORS.items():
-        try:
-            LOGGER.debug('Getting values from {0}({1}) sensor'.format(key, value))
-            process = Popen([SENSOR_DATA_COLLECTOR, value], stdout=PIPE, stderr=PIPE)
-            stdout, stderr = process.communicate()
-            if not stderr:
-                stdout = json.loads('{' + stdout.decode('utf-8').rstrip() + '}')
-                LOGGER.debug('{0} sensor response: {1}'.format(key, stdout))
-                if DB_CONNECTION is None:
-                    save_to_file(key, value, stdout)
-                else:
-                    save_to_db(key, value, stdout)
+        LOGGER.debug('Getting values from {0}({1}) sensor'.format(key, value))
+        process = Popen([SENSOR_DATA_COLLECTOR, value], stdout=PIPE, stderr=PIPE)
+        stdout, stderr = process.communicate()
+        if not stderr:
+            stdout = json.loads('{' + stdout.decode('utf-8').rstrip() + '}')
+            LOGGER.debug('{0} sensor response: {1}'.format(key, stdout))
+            if DB_CONNECTION is None:
+                save_to_file(key, value, stdout)
             else:
-                LOGGER.error(stderr)
-        except Exception:
-            LOGGER.error('Cannot connect to sensor: {0}({1})'.format(key, value))
+                save_to_db(key, value, stdout)
+        else:
+            LOGGER.error('Cannot connect to sensor: {0}({1})'.format(key, value), stderr)
     if DB_CONNECTION is None:
         FILE.close()
     else:
