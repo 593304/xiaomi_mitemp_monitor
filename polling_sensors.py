@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
+import configparser
 import logging
 import psycopg2
 import json
 import os
+import requests
 from subprocess import Popen, PIPE
 
 SENSOR_DATA_COLLECTOR = '/mnt/dev/monitoring/Xiaomi_sensor/get_sensor_data.py'
@@ -20,6 +22,9 @@ FILE = None
 LOGGER = None
 LOG_FILE = '/mnt/dev/log/python/xiaomi_sensor_polling.log'
 LOGGER_FORMAT = '%(asctime)15s | %(levelname)8s | %(name)s - %(funcName)12s - %(message)s'
+
+CONFIG = None
+CONFIG_FILE = '/mnt/dev/monitoring/RPI_data/get_rpi_data.conf'
 
 
 def init():
@@ -38,6 +43,9 @@ def init():
         LOGGER.error('Cannot connect to the database, using the temporary file')
         global FILE
         FILE = open(TEMP_DB_FILE, 'a+')
+
+    CONFIG = configparser.ConfigParser()
+    CONFIG.read(CONFIG_FILE)
 
 
 def check_temp_file():
@@ -82,6 +90,13 @@ def save_to_db(name, mac, result):
 
 
 def main():
+    # RPI Dashboard URL
+    protocol = CONFIG.get('SERVER', 'PROTOCOL')
+    host = CONFIG.get('SERVER', 'HOST')
+    port = CONFIG.get('SERVER', 'PORT')
+    path = CONFIG.get('SERVER', 'PATH')
+    base_url = "{0}://{1}:{2}/{3}".format(protocol, host, port, path)
+
     for key, value in SENSORS.items():
         LOGGER.debug('Getting values from {0}({1}) sensor'.format(key, value))
         process = Popen([SENSOR_DATA_COLLECTOR, value], stdout=PIPE, stderr=PIPE)
@@ -95,6 +110,20 @@ def main():
                 save_to_db(key, value, stdout)
         else:
             LOGGER.error('Cannot connect to sensor: {0}({1})'.format(key, value), stderr)
+        
+        # Sending data to the REST APIs
+        sensor_values_path = CONFIG.get('SERVER', 'SENSOR_VALUES')
+        sensor_values_data = {
+            'name': key,
+            'temperature': stdout['temperature'],
+            'humidity': stdout['humidity'],
+            'battery': stdout['battery']
+        }
+        try:
+            requests.post("{0}/{1}".format(base_url, sensor_values_path), json=sensor_values_data)
+        except Exception as e:
+            LOGGER.error(str(e))
+        
     if DB_CONNECTION is None:
         FILE.close()
     else:

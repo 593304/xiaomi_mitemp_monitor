@@ -121,5 +121,9 @@ CREATE OR REPLACE VIEW monitoring.sensor_data_battery_diff_by_minutes AS
 Checking the temporary file and saving its content to the database  
 Code and readme optimization 
 
+## Update 3
+
+Added REST API calls for notifying a custom dashboard application
+
 #
 Based on: https://github.com/ratcashdev/mitemp
