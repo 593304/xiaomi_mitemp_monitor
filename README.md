@@ -101,6 +101,23 @@ CREATE VIEW monitoring.sensor_data_battery_diff_by_days AS
 
 ## Update 2
 
+Fixed the monitoring.sensor_data_battery_diff_by_minutes view with a missing where clause for the sensor name equivalence
+```SQL
+CREATE OR REPLACE VIEW monitoring.sensor_data_battery_diff_by_minutes AS  
+    SELECT  
+        next.name,  
+        (next.battery_percent - base.battery_percent) AS battery_diff_percent,  
+        next.minute  
+    FROM  
+        (SELECT name, battery_percent, DATE_TRUNC('minute', timestamp) AS minute FROM monitoring.sensor_data WHERE id < (SELECT MAX(id) FROM monitoring.sensor_data) ORDER BY minute) AS base,  
+        (SELECT name, battery_percent, DATE_TRUNC('minute', timestamp) AS minute FROM monitoring.sensor_data WHERE id > (SELECT MIN(id) FROM monitoring.sensor_data) ORDER BY minute) AS next  
+    WHERE  
+        (base.minute + (interval '1 minute')) = next.minute AND  
+        base.name = next.name 
+    ORDER BY  
+        next.minute ASC;
+```
+
 Checking the temporary file and saving its content to the database  
 Code and readme optimization 
 
