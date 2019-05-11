@@ -125,5 +125,9 @@ Code and readme optimization
 
 Added REST API calls for notifying a custom dashboard application
 
+## Update 4
+
+Added config file
+
 #
 Based on: https://github.com/ratcashdev/mitemp
