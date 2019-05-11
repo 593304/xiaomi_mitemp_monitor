@@ -141,7 +141,7 @@ def main():
                 save_to_db(key, value, result)
         
         # Sending data to the REST APIs
-        sensor_values_path = CONFIG.get('SERVER', 'SENSOR_VALUES')
+        sensor_values_path = CONFIG.get(server_sensor_values[0], server_sensor_values[1])
         sensor_values_data = {
             'name': key,
             'temperature': result['temperature'],
