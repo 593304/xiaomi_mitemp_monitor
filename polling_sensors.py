@@ -26,7 +26,7 @@ CONFIG_KEYS = {
     'logger_file': [CONFIG_GROUPS['logger'], 'FILE'],
     'logger_format': [CONFIG_GROUPS['logger'], 'FORMAT'],
     'server_protocol': [CONFIG_GROUPS['server'], 'PROTOCOL'],
-    'server_host': [CONFIG_GROUPS['server'], 'HOST'],
+    'server_hosts': [CONFIG_GROUPS['server'], 'HOST'],
     'server_port': [CONFIG_GROUPS['server'], 'PORT'],
     'server_path': [CONFIG_GROUPS['server'], 'PATH'],
     'server_sensor_values': [CONFIG_GROUPS['server'], 'SENSOR_VALUES']
@@ -116,17 +116,19 @@ def save_to_db(name, mac, result):
 
 def main():
     server_protocol = CONFIG_KEYS['server_protocol']
-    server_host = CONFIG_KEYS['server_host']
+    server_hosts = CONFIG_KEYS['server_hosts']
     server_port = CONFIG_KEYS['server_port']
     server_path = CONFIG_KEYS['server_path']
     server_sensor_values = CONFIG_KEYS['server_sensor_values']
 
     # RPI Dashboard URL
     protocol = CONFIG.get(server_protocol[0], server_protocol[1])
-    host = CONFIG.get(server_host[0], server_host[1])
+    hosts = CONFIG.get(server_hosts[0], server_hosts[1])
     port = CONFIG.get(server_port[0], server_port[1])
     path = CONFIG.get(server_path[0], server_path[1])
-    base_url = "{0}://{1}:{2}/{3}".format(protocol, host, port, path)
+    base_urls = []
+    for host in hosts:
+        base_urls.append("{0}://{1}:{2}/{3}".format(protocol, host, port, path))
 
     get_sensor_data = GetSensorData()
 
@@ -148,10 +150,12 @@ def main():
             'humidity': result['humidity'],
             'battery': result['battery']
         }
-        try:
-            requests.post("{0}/{1}".format(base_url, sensor_values_path), json=sensor_values_data)
-        except Exception as e:
-            LOGGER.error(str(e))
+        for base_url in base_urls:
+            try:
+                requests.post("{0}/{1}".format(base_url, sensor_values_path), json=sensor_values_data)
+            except Exception as e:
+                LOGGER.error(str(e))
+                continue
         
     if DB_CONNECTION is None:
         FILE.close()

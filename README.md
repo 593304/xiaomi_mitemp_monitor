@@ -129,5 +129,9 @@ Added REST API calls for notifying a custom dashboard application
 
 Added config file
 
+## Update 5
+
+Handling multiple comma separated host address in config file
+
 #
 Based on: https://github.com/ratcashdev/mitemp
